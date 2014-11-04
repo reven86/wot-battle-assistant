@@ -9,7 +9,7 @@ import TriggersManager
 from TriggersManager import TRIGGER_TYPE
 import random
 import string
-from gui.BattleContext import g_battleContext
+from gui.battle_control import g_sessionProvider
 from debug_utils import *
 
 
@@ -80,7 +80,7 @@ def setNewTarget(newTarget):
         #print 'setNewTarget monitor {0}'.format(gExpertTarget.id if gExpertTarget is not None else 0)
         #FLUSH_LOG()
         if g_windowsManager.battleWindow:
-            g_windowsManager.battleWindow.pMsgsPanel._FadingMessagesPanel__showMessage(random.choice(string.ascii_letters), 'Expert: {0}'.format(g_battleContext.getFullPlayerName(vID=gExpertTarget.id)) if gExpertTarget is not None else 'Expert: OFF', 'default')
+            g_windowsManager.battleWindow.pMsgsPanel._FadingMessagesPanel__showMessage(random.choice(string.ascii_letters), 'Expert: {0}'.format(g_sessionProvider.getCtx().getFullPlayerName(vID=gExpertTarget.id)) if gExpertTarget is not None else 'Expert: OFF', 'default')
 
 oldPlayerAvatar_handleKey = Avatar.PlayerAvatar.handleKey
 def PlayerAvatar_handleKey(self, isDown, key, mods):
