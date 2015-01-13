@@ -86,6 +86,7 @@ def StrategicCamera_disable(self):
         self._StrategicCamera__aimingSystem._StrategicAimingSystem__planePosition.x = self._StrategicCamera__aimingSystem._matrix.translation.x
         self._StrategicCamera__aimingSystem._StrategicAimingSystem__planePosition.y = 0.0
         self._StrategicCamera__aimingSystem._StrategicAimingSystem__planePosition.z = self._StrategicCamera__aimingSystem._matrix.translation.z
+        self._StrategicCamera__aimingSystem._lastModeWasSniper = False
         gSPGSniperEnabled = False
 
 oldStrategicCamera__cameraUpdate = StrategicCamera.StrategicCamera._StrategicCamera__cameraUpdate
@@ -322,7 +323,9 @@ def minimapResetCamera(cam):
 oldStrategicControlMode_handleKeyEvent = control_modes.StrategicControlMode.handleKeyEvent
 def StrategicControlMode_handleKeyEvent( self, isDown, key, mods, event = None ):
 
-    if isDown and key in eval(BigWorld._ba_config['spg']['keys']):
+    keyProcessed = oldStrategicControlMode_handleKeyEvent( self, isDown, key, mods, event )
+
+    if not keyProcessed and isDown and key in eval(BigWorld._ba_config['spg']['keys']):
         global gSPGSniperEnabled
         gSPGSniperEnabled = not gSPGSniperEnabled
         BigWorld.player().positionControl.followCamera(not gSPGSniperEnabled)
@@ -331,7 +334,7 @@ def StrategicControlMode_handleKeyEvent( self, isDown, key, mods, event = None )
 
         return True
 
-    return oldStrategicControlMode_handleKeyEvent( self, isDown, key, mods, event )
+    return keyProcessed
 
 
 

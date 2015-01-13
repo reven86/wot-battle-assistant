@@ -11,5 +11,5 @@ if True:
     except:
         BigWorld._ba_config = {'spg':{'enabled':True, 'keys':"[Keys.KEY_MOUSE2, Keys.KEY_G]", 'zoomSpeed':3.0}, 'expert':{'enabled':True}, 'gunner':{'enabled':True}}
 
-print 'Battle Assistant: v1.2.1'
+print 'Battle Assistant: v1.2.3'
 
