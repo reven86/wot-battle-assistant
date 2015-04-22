@@ -13,63 +13,49 @@ from gui.battle_control import g_sessionProvider
 from debug_utils import *
 
 
+ 
 gExpertTarget = None
-
-
-
-
+ 
 oldPlayerAvatar_targetFocus = Avatar.PlayerAvatar.targetFocus
-def PlayerAvatar_targetFocus( self, entity ):
-    if not isinstance(entity, Vehicle.Vehicle):
-        return
-    if self.inputHandler.aim:
-        self.inputHandler.aim.setTarget(entity)
-    isInTutorial = self.arena is not None and self.arena.guiType == constants.ARENA_GUI_TYPE.TUTORIAL
-    if (self._PlayerAvatar__isGuiVisible or isInTutorial) and entity.isAlive():
-        TriggersManager.g_manager.activateTrigger(TRIGGER_TYPE.AIM_AT_VEHICLE, vehicleId=entity.id)
-        if self.team == entity.publicInfo['team']:
-            BigWorld.wgAddEdgeDetectEntity(entity, 2)
-        else:
-            BigWorld.wgAddEdgeDetectEntity(entity, 1)
-        global gExpertTarget
-        if gExpertTarget is None and self._PlayerAvatar__maySeeOtherVehicleDamagedDevices:
-            #print 'PlayerAvatar_targetFocus monitor {0}'.format(entity.id)
-            #FLUSH_LOG()
-            self.cell.monitorVehicleDamagedDevices(entity.id)
-
-oldPlayerAvatar_targetBlur = Avatar.PlayerAvatar.targetBlur
-def PlayerAvatar_targetBlur( self, prevEntity ):
-    if not isinstance(prevEntity, Vehicle.Vehicle):
-        return
-    if self.inputHandler.aim:
-        self.inputHandler.aim.clearTarget()
-    TriggersManager.g_manager.deactivateTrigger(TRIGGER_TYPE.AIM_AT_VEHICLE)
-    BigWorld.wgDelEdgeDetectEntity(prevEntity)
+def PlayerAvatar_targetFocus(self, entity):
     global gExpertTarget
-    if gExpertTarget is None and self._PlayerAvatar__maySeeOtherVehicleDamagedDevices:
-        #print 'PlayerAvatar_targetBlur monitor {0}'.format(0)
-        #FLUSH_LOG()
-        self.cell.monitorVehicleDamagedDevices(0)
-        g_windowsManager.battleWindow.damageInfoPanel.hide()
+    saveMaySeeOtherVehicleDamagedDevices = self._PlayerAvatar__maySeeOtherVehicleDamagedDevices
 
-oldPlayerAvatar_showOtherVehicleDamagedDevices = Avatar.PlayerAvatar.showOtherVehicleDamagedDevices
+    self._PlayerAvatar__maySeeOtherVehicleDamagedDevices = (gExpertTarget is None and self._PlayerAvatar__maySeeOtherVehicleDamagedDevices)
+    oldPlayerAvatar_targetFocus(self, entity)
+    self._PlayerAvatar__maySeeOtherVehicleDamagedDevices = saveMaySeeOtherVehicleDamagedDevices
+ 
+oldPlayerAvatar_targetBlur = Avatar.PlayerAvatar.targetBlur
+def PlayerAvatar_targetBlur(self, prevEntity):
+    global gExpertTarget
+    saveMaySeeOtherVehicleDamagedDevices = self._PlayerAvatar__maySeeOtherVehicleDamagedDevices
+
+    self._PlayerAvatar__maySeeOtherVehicleDamagedDevices = (gExpertTarget is None and self._PlayerAvatar__maySeeOtherVehicleDamagedDevices)
+    oldPlayerAvatar_targetBlur(self, prevEntity)
+    self._PlayerAvatar__maySeeOtherVehicleDamagedDevices = saveMaySeeOtherVehicleDamagedDevices
+ 
+old_PlayerAvatar_showOtherVehicleDamagedDevices = Avatar.PlayerAvatar.showOtherVehicleDamagedDevices
 def PlayerAvatar_showOtherVehicleDamagedDevices(self, vehicleID, damagedExtras, destroyedExtras):
     #print 'PlayerAvatar_showOtherVehicleDamagedDevices'
     global gExpertTarget
-    target = gExpertTarget or BigWorld.target()
-    if target is None or not isinstance(target, Vehicle.Vehicle):
-        if self._PlayerAvatar__maySeeOtherVehicleDamagedDevices and vehicleID != 0:
-            self.cell.monitorVehicleDamagedDevices(0)
-            #print 'PlayerAvatar_showOtherVehicleDamagedDevices monitor {0}'.format(0)
-            #FLUSH_LOG()
-    elif target.id == vehicleID:
-        g_windowsManager.battleWindow.damageInfoPanel.show(vehicleID, damagedExtras, destroyedExtras)
+    if gExpertTarget is not None:
+        target = gExpertTarget
+        if not isinstance(target, Vehicle.Vehicle):
+            if self._PlayerAvatar__maySeeOtherVehicleDamagedDevices and vehicleID != 0:
+                self.cell.monitorVehicleDamagedDevices(0)
+                #print 'PlayerAvatar_showOtherVehicleDamagedDevices monitor {0}'.format(0)
+                #FLUSH_LOG()
+        elif target.id == vehicleID:
+            g_windowsManager.battleWindow.damageInfoPanel.show(vehicleID, damagedExtras, destroyedExtras)
+        else:
+            if self._PlayerAvatar__maySeeOtherVehicleDamagedDevices:
+                self.cell.monitorVehicleDamagedDevices(target.id)
+                #print 'PlayerAvatar_showOtherVehicleDamagedDevices monitor {0}'.format(target.id)
+                #FLUSH_LOG()
+            g_windowsManager.battleWindow.damageInfoPanel.hide()
     else:
-        if self._PlayerAvatar__maySeeOtherVehicleDamagedDevices:
-            self.cell.monitorVehicleDamagedDevices(target.id)
-            #print 'PlayerAvatar_showOtherVehicleDamagedDevices monitor {0}'.format(target.id)
-            #FLUSH_LOG()
-        g_windowsManager.battleWindow.damageInfoPanel.hide()
+        old_PlayerAvatar_showOtherVehicleDamagedDevices(self, vehicleID, damagedExtras, destroyedExtras)
+ 
 
 def setNewTarget(newTarget):
     global gExpertTarget
@@ -82,6 +68,7 @@ def setNewTarget(newTarget):
         if g_windowsManager.battleWindow:
             g_windowsManager.battleWindow.pMsgsPanel._FadingMessagesPanel__showMessage(random.choice(string.ascii_letters), 'Expert: {0}'.format(g_sessionProvider.getCtx().getFullPlayerName(vID=gExpertTarget.id)) if gExpertTarget is not None else 'Expert: OFF', 'default')
 
+
 oldPlayerAvatar_handleKey = Avatar.PlayerAvatar.handleKey
 def PlayerAvatar_handleKey(self, isDown, key, mods):
     if self._PlayerAvatar__maySeeOtherVehicleDamagedDevices:
@@ -92,7 +79,7 @@ def PlayerAvatar_handleKey(self, isDown, key, mods):
 
     return oldPlayerAvatar_handleKey(self, isDown, key, mods)
 
-                                    
+
 oldVehicle_stopVisual = Vehicle.Vehicle.stopVisual
 def Vehicle_stopVisual(self):
     oldVehicle_stopVisual( self )
@@ -126,6 +113,8 @@ def PlayerAvatar_showShotResults(self, results):
         setNewTarget(BigWorld.entity(vehicleID))
         return
 
+
+                                   
 
 if BigWorld._ba_config['expert']['enabled']:
     Avatar.PlayerAvatar.targetFocus = PlayerAvatar_targetFocus

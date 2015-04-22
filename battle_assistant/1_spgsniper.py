@@ -19,7 +19,7 @@ from gui.scaleform import Minimap
 gSPGSniperEnabled = False
 
 
-def _getGunMarkerPosition( shotPos, shotVec ):
+def _getGunMarkerPosition( shotPos, shotVec, testOnlyPlane = None ):
     player = BigWorld.player( )
     shotDescr = player.vehicleTypeDescriptor.shot
     gravity = Math.Vector3(0.0, -shotDescr['gravity'], 0.0)
@@ -31,7 +31,15 @@ def _getGunMarkerPosition( shotPos, shotVec ):
         newPos = prevPos + prevVelocity.scale(dt) + gravity.scale(dt * dt * 0.5)
         prevVelocity += gravity.scale(dt)
 
-        testRes = BigWorld.wg_collideSegment(BigWorld.player().spaceID, prevPos, newPos, 128)
+        if testOnlyPlane is not None:
+            if prevPos.y > testOnlyPlane and newPos.y <= testOnlyPlane:
+                t = (testOnlyPlane - prevPos.y) / (newPos.y - prevPos.y)
+                dir = newPos - prevPos
+                testRes = (prevPos + dir.scale(t),)
+            else:
+                testRes = None
+        else:
+            testRes = BigWorld.wg_collideSegment(BigWorld.player().spaceID, prevPos, newPos, 128)
         if testRes is not None:
             endPos = testRes[0]
             factor = (endPos - prevPos).length / (newPos - prevPos).length
@@ -95,7 +103,7 @@ def StrategicCamera__cameraUpdate( self ):
 
     global gSPGSniperEnabled
     if not gSPGSniperEnabled:
-        srcMat = mathUtils.createRotationMatrix((0, -math.pi * 0.49, 0))
+        srcMat = mathUtils.createRotationMatrix((0, -math.pi * 0.499, 0))
         self._StrategicCamera__cam.source = srcMat
         self._StrategicCamera__cam.target.b = self._StrategicCamera__aimingSystem.matrix
 
@@ -135,9 +143,9 @@ def StrategicCamera__cameraUpdate( self ):
         if replayCtrl.isRecording:
             replayCtrl.setAimClipPosition(Math.Vector2( aimOffset.x, aimOffset.y ))
 
-    self._StrategicCamera__aim.offset((aimOffset.x, aimOffset.y))
+    self._StrategicCamera__aimOffsetFunc((aimOffset.x, aimOffset.y))
     shotDescr = BigWorld.player().vehicleTypeDescriptor.shot
-    BigWorld.wg_trajectory_drawer().setParams(shotDescr['maxDistance'], Math.Vector3(0, -shotDescr['gravity'], 0), self._StrategicCamera__aim.offset())
+    BigWorld.wg_trajectory_drawer().setParams(shotDescr['maxDistance'], Math.Vector3(0, -shotDescr['gravity'], 0), self._StrategicCamera__aimOffsetFunc())
     curTime = BigWorld.time()
     deltaTime = curTime - self._StrategicCamera__prevTime
     self._StrategicCamera__prevTime = curTime
@@ -188,8 +196,7 @@ def StrategicCamera__cameraUpdate( self ):
     cameraOffset = -shellVelocity.scale( zoomDistance )
     cameraPosition = shotEnd + cameraOffset
 
-    collPoint = None
-    collPoint = BigWorld.wg_collideSegment(player.spaceID, shotEnd - shellVelocity.scale(1.0 if shellVelocity.y > 0.0 else distRange[0] * zoomFactor * 0.25), cameraPosition, 128)
+    collPoint = None if BigWorld._ba_config['spg']['ignoreObstacles'] else BigWorld.wg_collideSegment(player.spaceID, shotEnd - shellVelocity.scale(1.0 if shellVelocity.y > 0.0 else distRange[0] * zoomFactor * 0.25), cameraPosition, 128)
 
     if collPoint is None:
         collPoint = player.arena.collideWithSpaceBB(shotEnd, cameraPosition)
@@ -247,19 +254,24 @@ def StrategicCamera__cameraUpdate( self ):
 
 oldStrategicAimingSystem_updateMatrix = StrategicAimingSystem.StrategicAimingSystem._StrategicAimingSystem__updateMatrix
 def StrategicAimingSystem_updateMatrix(self):
+    player = BigWorld.player( )
+    descr = player.vehicleTypeDescriptor
+
     global gSPGSniperEnabled
     if not gSPGSniperEnabled:
         if self._lastModeWasSniper:
-            self._StrategicAimingSystem__planePosition.x = self._matrix.translation.x
-            self._StrategicAimingSystem__planePosition.y = 0.0
-            self._StrategicAimingSystem__planePosition.z = self._matrix.translation.z
+            if BigWorld._ba_config['spg']['ignoreObstacles']:
+                turretYaw, gunPitch = getShotAngles(descr, player.getOwnVehicleMatrix(), (0, 0), self._matrix.translation, True )
+                currentGunMat = AimingSystems.getPlayerGunMat(turretYaw, gunPitch)
+                clientShotStart = currentGunMat.translation
+                clientShotVec = currentGunMat.applyVector(Math.Vector3(0, 0, descr.shot['speed']))
+                self._matrix.translation, self._shellVelocity = _getGunMarkerPosition( clientShotStart, clientShotVec, None )
+
+            self._StrategicAimingSystem__planePosition = Math.Vector3(self._matrix.translation.x, 0.0, self._matrix.translation.z)
 
         oldStrategicAimingSystem_updateMatrix( self )
         self._lastModeWasSniper = False
         return
-
-    player = BigWorld.player( )
-    descr = player.vehicleTypeDescriptor
 
     bb = BigWorld.player().arena.arenaType.boundingBox
     pos2D = _clampPoint2DInBox2D(bb[0] - Math.Vector2( 200.0, 200.0 ), bb[1] + Math.Vector2( 200.0, 200.0 ), Math.Vector2(self._StrategicAimingSystem__planePosition.x, self._StrategicAimingSystem__planePosition.z))
@@ -275,24 +287,25 @@ def StrategicAimingSystem_updateMatrix(self):
 
     distance = ( Math.Vector3( self._StrategicAimingSystem__planePosition.x, playerPos.y, self._StrategicAimingSystem__planePosition.z ) - playerPos ).length + 0.01
     heightFactor = distance / self._initialDistance
+    aimPoint = Math.Vector3( self._StrategicAimingSystem__planePosition.x, playerPos.y * (1.0 - heightFactor) + self._StrategicAimingSystem__planePosition.y * heightFactor, self._StrategicAimingSystem__planePosition.z )
 
-    turretYaw, gunPitch = getShotAngles(descr, player.getOwnVehicleMatrix(), (0, 0), Math.Vector3( self._StrategicAimingSystem__planePosition.x, playerPos.y * (1.0 - heightFactor) + self._StrategicAimingSystem__planePosition.y * heightFactor, self._StrategicAimingSystem__planePosition.z ), True )
-    #gunPitchLimits = calcPitchLimitsFromDesc(turretYaw, descr.gun['pitchLimits'])
+    turretYaw, gunPitch = getShotAngles(descr, player.getOwnVehicleMatrix(), (0, 0), aimPoint, True )
     currentGunMat = AimingSystems.getPlayerGunMat(turretYaw, gunPitch)
     clientShotStart = currentGunMat.translation
     clientShotVec = currentGunMat.applyVector(Math.Vector3(0, 0, descr.shot['speed']))
     
-    self._matrix.translation, self._shellVelocity = _getGunMarkerPosition( clientShotStart, clientShotVec )
+    self._matrix.translation, self._shellVelocity = _getGunMarkerPosition( clientShotStart, clientShotVec, aimPoint.y if BigWorld._ba_config['spg']['ignoreObstacles'] else None )
+
     self._lastModeWasSniper = True
 
     #LOG_ERROR( '{0} {1}'.format( gunPitch, gunPitchLimits ) )
     #FLUSH_LOG( )
 
 oldStrategicAimingSystem_getDesiredShotPoint = StrategicAimingSystem.StrategicAimingSystem.getDesiredShotPoint
-def StrategicAimingSystem_getDesiredShotPoint( self ):
+def StrategicAimingSystem_getDesiredShotPoint( self, terrainOnlyCheck = False ):
     global gSPGSniperEnabled
     if not gSPGSniperEnabled:
-        return oldStrategicAimingSystem_getDesiredShotPoint( self )
+        return oldStrategicAimingSystem_getDesiredShotPoint( self, terrainOnlyCheck )
 
     return self._matrix.translation
 
@@ -330,7 +343,7 @@ def StrategicControlMode_handleKeyEvent( self, isDown, key, mods, event = None )
         gSPGSniperEnabled = not gSPGSniperEnabled
         BigWorld.player().positionControl.followCamera(not gSPGSniperEnabled)
 
-        minimapResetCamera(self._StrategicControlMode__cam)
+        minimapResetCamera(self._cam)
 
         return True
 
