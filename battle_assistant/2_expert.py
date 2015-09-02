@@ -2,7 +2,7 @@ import BigWorld
 import Avatar
 import constants
 import Vehicle
-from gui.WindowsManager import g_windowsManager
+from gui.app_loader import g_appLoader
 from chat_shared import CHAT_COMMANDS
 import CommandMapping
 import TriggersManager
@@ -46,13 +46,13 @@ def PlayerAvatar_showOtherVehicleDamagedDevices(self, vehicleID, damagedExtras, 
                 #print 'PlayerAvatar_showOtherVehicleDamagedDevices monitor {0}'.format(0)
                 #FLUSH_LOG()
         elif target.id == vehicleID:
-            g_windowsManager.battleWindow.damageInfoPanel.show(vehicleID, damagedExtras, destroyedExtras)
+            g_appLoader.getDefBattleApp().damageInfoPanel.show(vehicleID, damagedExtras, destroyedExtras)
         else:
             if self._PlayerAvatar__maySeeOtherVehicleDamagedDevices:
                 self.cell.monitorVehicleDamagedDevices(target.id)
                 #print 'PlayerAvatar_showOtherVehicleDamagedDevices monitor {0}'.format(target.id)
                 #FLUSH_LOG()
-            g_windowsManager.battleWindow.damageInfoPanel.hide()
+            g_appLoader.getDefBattleApp().damageInfoPanel.hide()
     else:
         old_PlayerAvatar_showOtherVehicleDamagedDevices(self, vehicleID, damagedExtras, destroyedExtras)
  
@@ -65,8 +65,8 @@ def setNewTarget(newTarget):
         BigWorld.player().cell.monitorVehicleDamagedDevices( gExpertTarget.id if gExpertTarget is not None else 0 )
         #print 'setNewTarget monitor {0}'.format(gExpertTarget.id if gExpertTarget is not None else 0)
         #FLUSH_LOG()
-        if g_windowsManager.battleWindow:
-            g_windowsManager.battleWindow.pMsgsPanel._FadingMessages__showMessage(random.choice(string.ascii_letters), 'Expert: {0}'.format(g_sessionProvider.getCtx().getFullPlayerName(vID=gExpertTarget.id)) if gExpertTarget is not None else 'Expert: OFF', 'default')
+        if g_appLoader.getDefBattleApp():
+            g_appLoader.getDefBattleApp().pMsgsPanel._FadingMessages__showMessage(random.choice(string.ascii_letters), 'Expert: {0}'.format(g_sessionProvider.getCtx().getFullPlayerName(vID=gExpertTarget.id)) if gExpertTarget is not None else 'Expert: OFF', 'default')
 
 
 oldPlayerAvatar_handleKey = Avatar.PlayerAvatar.handleKey

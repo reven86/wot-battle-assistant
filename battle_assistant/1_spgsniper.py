@@ -13,12 +13,13 @@ from projectile_trajectory import getShotAngles, computeProjectileTrajectory
 from constants import SERVER_TICK_LENGTH, SHELL_TRAJECTORY_EPSILON_CLIENT
 from ProjectileMover import collideDynamicAndStatic, collideVehiclesAndStaticScene
 from gun_rotation_shared import calcPitchLimitsFromDesc
-from gui.WindowsManager import g_windowsManager
+from gui.app_loader import g_appLoader
 from gui.scaleform import Minimap
 from gun_rotation_shared import calcPitchLimitsFromDesc
 from gui import DEPTH_OF_GunMarker
 from gui import g_guiResetters
 import ClientArena
+from gui.Scaleform.Battle import Battle
 
 
 
@@ -358,7 +359,7 @@ def StrategicAimingSystem_getDesiredShotPoint( self, terrainOnlyCheck = False ):
     return self._matrix.translation
 
 def minimapResetCamera(cam):
-    minimap = g_windowsManager.battleWindow.minimap
+    minimap = g_appLoader.getDefBattleApp().minimap
     if minimap is None:
         return
 
@@ -411,6 +412,18 @@ def GunControlMode_createGunMarker(self, mode, isStrategic):
     oldGunControlMode_createGunMarker(self, mode, False)
 
 
+oldBattle_afterCreate = Battle.afterCreate
+def Battle_afterCreate(self):
+    oldBattle_afterCreate(self)
+    spgAim.onStartBattle()
+
+oldBattle_beforeDelete = Battle.beforeDelete
+def Battle_beforeDelete(self):
+    oldBattle_beforeDelete(self)
+    spgAim.onStopBattle()
+
+
+
 if BigWorld._ba_config['spg']['enabled']:
     StrategicCamera.StrategicCamera._StrategicCamera__cameraUpdate = StrategicCamera__cameraUpdate
     StrategicCamera.StrategicCamera.create = StrategicCamera_create
@@ -422,8 +435,8 @@ if BigWorld._ba_config['spg']['enabled']:
     ClientArena.ClientArena._ClientArena__setupBBColliders = ClientArena_setupBBColliders
     #control_modes._GunControlMode._GunControlMode__createGunMarker = GunControlMode_createGunMarker
 
-    g_windowsManager.onInitBattleGUI += spgAim.onStartBattle
-    g_windowsManager.onDestroyBattleGUI += spgAim.onStopBattle
+    Battle.afterCreate = Battle_afterCreate
+    Battle.beforeDelete = Battle_beforeDelete
     g_guiResetters.add(spgAim.onChangeScreenResolution)
 
     #print 'SPG Sniper Mod enabled'

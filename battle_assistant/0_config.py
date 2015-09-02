@@ -5,11 +5,10 @@ from gui.prb_control.events_dispatcher import EventDispatcher
 
 if True:
     try:
-        import mods.yaml as yaml
+        import gui.mods.yaml as yaml
         import ResMgr
 
-        configPath = ResMgr.resolveToAbsolutePath('scripts/client/mods/battle_assistant.txt').decode('utf-8')
-        print configPath
+        configPath = ResMgr.resolveToAbsolutePath('scripts/client/gui/mods/mod_battle_assistant.txt').decode('utf-8')
         with open(configPath, 'rt') as configFile:
             BigWorld._ba_config = yaml.load(configFile.read())
     except:
@@ -18,7 +17,7 @@ if True:
         traceback.print_exception(*sys.exc_info())
         BigWorld._ba_config = {'spg':{'enabled':True, 'keys':"[Keys.KEY_MOUSE2, Keys.KEY_G]", 'ignoreObstacles':False, 'zoomSpeed':3.0}, 'expert':{'enabled':True}, 'gunner':{'enabled':True}}
     finally:
-        BigWorld._ba_config['version'] = '1.3.1'
+        BigWorld._ba_config['version'] = '1.3.3'
         BigWorld._ba_config['analyticsEventSent'] = False
 
 print 'Battle Assistant: v{}'.format(BigWorld._ba_config['version'])
