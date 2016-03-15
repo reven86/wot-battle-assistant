@@ -40,19 +40,20 @@ def PlayerAvatar_showOtherVehicleDamagedDevices(self, vehicleID, damagedExtras, 
     global gExpertTarget
     if gExpertTarget is not None:
         target = gExpertTarget
+        feedback = g_sessionProvider.getFeedback()
         if not isinstance(target, Vehicle.Vehicle):
             if self._PlayerAvatar__maySeeOtherVehicleDamagedDevices and vehicleID != 0:
                 self.cell.monitorVehicleDamagedDevices(0)
                 #print 'PlayerAvatar_showOtherVehicleDamagedDevices monitor {0}'.format(0)
                 #FLUSH_LOG()
         elif target.id == vehicleID:
-            g_appLoader.getDefBattleApp().damageInfoPanel.show(vehicleID, damagedExtras, destroyedExtras)
+            feedback.showVehicleDamagedDevices(vehicleID, damagedExtras, destroyedExtras, avatar=self)
         else:
             if self._PlayerAvatar__maySeeOtherVehicleDamagedDevices:
                 self.cell.monitorVehicleDamagedDevices(target.id)
                 #print 'PlayerAvatar_showOtherVehicleDamagedDevices monitor {0}'.format(target.id)
                 #FLUSH_LOG()
-            g_appLoader.getDefBattleApp().damageInfoPanel.hide()
+            feedback.hideVehicleDamagedDevices(vehicleID)
     else:
         old_PlayerAvatar_showOtherVehicleDamagedDevices(self, vehicleID, damagedExtras, destroyedExtras)
  

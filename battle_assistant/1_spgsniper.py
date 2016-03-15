@@ -18,8 +18,11 @@ from gui.scaleform import Minimap
 from gun_rotation_shared import calcPitchLimitsFromDesc
 from gui import DEPTH_OF_GunMarker
 from gui import g_guiResetters
-import ClientArena
-from gui.Scaleform.Battle import Battle
+import ProjectileMover
+import Avatar
+
+
+
 
 
 
@@ -27,17 +30,14 @@ class SPGAim(object):
     
     def __init__(self):
         self.enabled = False
-
-    def _isOutOfLimits(self, angle, limits):
-        if limits is None:
-            return False
-        elif abs(limits[1] - angle) < 1e-05 or abs(limits[0] - angle) < 1e-05:
-            return False
-        else:
-            dpi = 2 * math.pi
-            minDiff = math.fmod(limits[0] - angle + dpi, dpi)
-            maxDiff = math.fmod(limits[1] - angle + dpi, dpi)
-            return minDiff <= maxDiff
+        self._projectileMP = Math.WGAdaptiveMatrixProvider()
+        self._projectileMP.target = mathUtils.createIdentityMatrix()
+        self._projectileID = None
+        self._trackProjectile = False
+        self._trackProjectileStartPoint = None
+        self._trackProjectileVelocity = None
+        self._trackProjectileStartTime = 0.0
+        self._followProjectileKey = eval(BigWorld._ba_config['spg']['followProjectileKey'])
 
     def _getGunMarkerPosition( self, shotPos, shotVec, testOnlyPlane = None ):
         player = BigWorld.player( )
@@ -93,9 +93,6 @@ class SPGAim(object):
             self.enabled = False
 
     def onStrategicCameraDisable(self, camera):
-        BigWorld.projection().nearPlane = self._prevNearPlane
-        BigWorld.projection().farPlane = self._prevFarPlane
-
         if self.enabled:
             camera._StrategicCamera__aimingSystem._StrategicAimingSystem__planePosition.x = camera._StrategicCamera__aimingSystem._matrix.translation.x
             camera._StrategicCamera__aimingSystem._StrategicAimingSystem__planePosition.y = 0.0
@@ -217,13 +214,32 @@ class SPGAim(object):
         BigWorld.projection().fov = fov
         BigWorld.player().positionControl.moveTo(shotEnd)
 
+        if BigWorld._ba_config['spg']['alwaysFollowProjectile'] or BigWorld.isKeyDown(self._followProjectileKey):
+            if self._trackProjectile:
+                time = BigWorld.time() - self._trackProjectileStartTime
+                if time > 0:
+                    shotDescr = descr.shot
+                    gravity = Math.Vector3(0.0, -shotDescr['gravity'], 0.0)
+                    shellVelocity = self._trackProjectileVelocity + gravity.scale(time)
+                    srcMat.setRotateYPR((shellVelocity.yaw, -shellVelocity.pitch, 0))
+                    camera._StrategicCamera__cam.source = srcMat
+                    camera._StrategicCamera__cam.target.b.setTranslate(self._trackProjectileStartPoint + self._trackProjectileVelocity.scale(time) + gravity.scale(time * time * 0.5))
+                    BigWorld.projection().fov = math.pi * 0.4
+
+            elif player._PlayerAvatar__projectileMover._ProjectileMover__projectiles.get(self._projectileID):
+                shellVelocity = Math.Matrix(self._projectileMP).applyVector(Math.Vector3(0.0, 0.0, 1.0))
+                srcMat.setRotateYPR((shellVelocity.yaw, -shellVelocity.pitch, 0))
+                camera._StrategicCamera__cam.source = srcMat
+                camera._StrategicCamera__cam.target.b = self._projectileMP
+                BigWorld.projection().fov = math.pi * 0.4
+
         return 0
 
     def calcTrajectoryProperties(self, aimPoint):
         player = BigWorld.player( )
         descr = player.vehicleTypeDescriptor
 
-        finalPathTurretYaw, finalPathGunPitch = getShotAngles(descr, player.getOwnVehicleMatrix(), (0, 0), aimPoint, True )
+        finalPathTurretYaw, finalPathGunPitch = getShotAngles(descr, player.getOwnVehicleStabilisedMatrix(), (0, 0), aimPoint, True )
         currentGunMat = AimingSystems.getPlayerGunMat(finalPathTurretYaw, finalPathGunPitch)
         clientShotStart = currentGunMat.translation
         clientShotVec = currentGunMat.applyVector(Math.Vector3(0, 0, descr.shot['speed']))
@@ -257,33 +273,24 @@ class SPGAim(object):
 
         #FLUSH_LOG( )
 
-    def onStartBattle(self):
-        pass
+    def captureProjectile(self, shotID, model):
+        self._projectileMP.target = model.matrix
+        self._projectileID = shotID
+        self._trackProjectile = False
 
-    def onStopBattle(self):
-        pass
+    def predictProjectile(self):
+        if not self.enabled:
+            return
+        player = BigWorld.player( )
+        descr = player.vehicleTypeDescriptor
+        self._trackProjectile = True
+        self._trackProjectileStartTime = BigWorld.time() + 2 * SERVER_TICK_LENGTH
 
-    def _createLabel(self, x, y, depth):
-        label = GUI.Text('')
-        label.visible = True
-        label.font = 'hpmp_panel.font'
-        label.colourFormatting = True
-        label.multiline = True
-        label.filterType = 'LINEAR'
-        label.widthMode = 'PIXEL'
-        label.heightMode = 'PIXEL'
-        label.verticalPositionMode = 'PIXEL'
-        label.horizontalPositionMode = 'PIXEL'
-        label.horizontalAnchor = 'LEFT'
-        GUI.addRoot(label)
-        sr = GUI.screenResolution()
-        x = sr[0] * 0.5 + x
-        y = sr[1] * 0.5 + y
-        label.position = (x, y, depth)
-        return label
-        
-    def onChangeScreenResolution(self):
-        pass
+        finalPathTurretYaw, finalPathGunPitch = getShotAngles(descr, player.getOwnVehicleStabilisedMatrix(), (0, 0), self._lastShotPoint, True)
+        currentGunMat = AimingSystems.getPlayerGunMat(finalPathTurretYaw, finalPathGunPitch)
+        self._trackProjectileStartPoint = currentGunMat.translation
+        self._trackProjectileVelocity = currentGunMat.applyVector(Math.Vector3(0, 0, descr.shot['speed']))
+
 
 
 spgAim = SPGAim()
@@ -306,6 +313,8 @@ oldStrategicCamera_disable = StrategicCamera.StrategicCamera.disable
 def StrategicCamera_disable(self):
     oldStrategicCamera_disable(self)
     spgAim.onStrategicCameraDisable(self)
+    BigWorld.projection().nearPlane = spgAim._prevNearPlane
+    BigWorld.projection().farPlane = spgAim._prevFarPlane
 
 
 oldStrategicCamera__cameraUpdate = StrategicCamera.StrategicCamera._StrategicCamera__cameraUpdate
@@ -333,7 +342,7 @@ def StrategicAimingSystem_updateMatrix(self):
     if not spgAim.enabled:
         if spgAim._lastModeWasSniper:
             if BigWorld._ba_config['spg']['ignoreObstacles']:
-                turretYaw, gunPitch = getShotAngles(descr, player.getOwnVehicleMatrix(), (0, 0), self._matrix.translation, True )
+                turretYaw, gunPitch = getShotAngles(descr, player.getOwnVehicleStabilisedMatrix(), (0, 0), self._matrix.translation, True )
                 currentGunMat = AimingSystems.getPlayerGunMat(turretYaw, gunPitch)
                 clientShotStart = currentGunMat.translation
                 clientShotVec = currentGunMat.applyVector(Math.Vector3(0, 0, descr.shot['speed']))
@@ -356,6 +365,7 @@ def StrategicAimingSystem_getDesiredShotPoint( self, terrainOnlyCheck = False ):
     if not spgAim.enabled:
         return oldStrategicAimingSystem_getDesiredShotPoint( self, terrainOnlyCheck )
 
+    spgAim._lastShotPoint = self._matrix.translation
     return self._matrix.translation
 
 def minimapResetCamera(cam):
@@ -396,31 +406,29 @@ def StrategicControlMode_handleKeyEvent( self, isDown, key, mods, event = None )
 
     return False
 
-oldClientArena_setupBBColliders = ClientArena.ClientArena._ClientArena__setupBBColliders
-def ClientArena_setupBBColliders(self):
-    if BigWorld.wg_getSpaceBounds().length == 0.0:
-        return False
-    arenaBB = self.arenaType.boundingBox
-    spaceBB = ClientArena._convertToList(BigWorld.wg_getSpaceBounds())
-    self._ClientArena__arenaBBCollider = ClientArena._BBCollider(arenaBB, (-500.0, 2500.0))
-    self._ClientArena__spaceBBCollider = ClientArena._BBCollider(spaceBB, (-500.0, 2500.0))
-    return True
+oldProjectileMover_add = ProjectileMover.ProjectileMover.add
+def ProjectileMover_add(*kargs, **kwargs):
+    if not spgAim.enabled:
+        oldProjectileMover_add(*kargs, **kwargs)    
 
+    attackerID = kargs[oldProjectileMover_add.func_code.co_varnames.index('attackerID')]
+    if spgAim._trackProjectile and attackerID == BigWorld.player().playerVehicleID:
+        kargs = list(kargs)
+        kargs[oldProjectileMover_add.func_code.co_varnames.index('startPoint')] = kargs[oldProjectileMover_add.func_code.co_varnames.index('refStartPoint')]
 
-oldGunControlMode_createGunMarker = control_modes._GunControlMode._GunControlMode__createGunMarker
-def GunControlMode_createGunMarker(self, mode, isStrategic):
-    oldGunControlMode_createGunMarker(self, mode, False)
+    oldProjectileMover_add(*kargs, **kwargs)    
 
+    shotID = kargs[oldProjectileMover_add.func_code.co_varnames.index('shotID')]
+    if attackerID == BigWorld.player().playerVehicleID:
+        proj = BigWorld.player()._PlayerAvatar__projectileMover._ProjectileMover__projectiles.get(shotID, None)
+        if proj:
+            spgAim.captureProjectile(shotID, proj['model'])
 
-oldBattle_afterCreate = Battle.afterCreate
-def Battle_afterCreate(self):
-    oldBattle_afterCreate(self)
-    spgAim.onStartBattle()
-
-oldBattle_beforeDelete = Battle.beforeDelete
-def Battle_beforeDelete(self):
-    oldBattle_beforeDelete(self)
-    spgAim.onStopBattle()
+oldPlayerAvatar__startWaitingForShot = Avatar.PlayerAvatar._PlayerAvatar__startWaitingForShot
+def PlayerAvatar__startWaitingForShot(*kargs, **kwargs):
+    oldPlayerAvatar__startWaitingForShot(*kargs, **kwargs)
+    if spgAim.enabled:
+        spgAim.predictProjectile()
 
 
 
@@ -432,13 +440,5 @@ if BigWorld._ba_config['spg']['enabled']:
     StrategicAimingSystem.StrategicAimingSystem._StrategicAimingSystem__updateMatrix = StrategicAimingSystem_updateMatrix
     StrategicAimingSystem.StrategicAimingSystem.getDesiredShotPoint = StrategicAimingSystem_getDesiredShotPoint
     control_modes.StrategicControlMode.handleKeyEvent = StrategicControlMode_handleKeyEvent
-    ClientArena.ClientArena._ClientArena__setupBBColliders = ClientArena_setupBBColliders
-    #control_modes._GunControlMode._GunControlMode__createGunMarker = GunControlMode_createGunMarker
-
-    Battle.afterCreate = Battle_afterCreate
-    Battle.beforeDelete = Battle_beforeDelete
-    g_guiResetters.add(spgAim.onChangeScreenResolution)
-
-    #print 'SPG Sniper Mod enabled'
-
-    #print control_modes.StrategicControlMode.handleKeyEvent
+    ProjectileMover.ProjectileMover.add = ProjectileMover_add
+    Avatar.PlayerAvatar._PlayerAvatar__startWaitingForShot = PlayerAvatar__startWaitingForShot
