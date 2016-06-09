@@ -22,58 +22,7 @@ out = open('mod_' + name + '.pyc', 'wb')
 out.write(imp.get_magic())
 out.write('\x00\x00\x00\x00')
 template = 'import marshal;'
-template += 'import sys, types, cPickle;'
-
-def packModule(name):
-    global template
-
-    template += '{0}=types.ModuleType("{0}","None");'.format(name)
-    template += '{}.__dict__["__builtins__"]=__builtins__;'.format(name)
-
-    files = os.listdir(name) 
-    for fileName in files:
-        if fileName[-3:] == '.py':
-            if fileName != '__init__.py':
-                modName = fileName[:-3]
-                print 'packing {}'.format(modName)
-
-                template += '{0}=types.ModuleType("{0}","None");'.format(modName)
-                template += '{}.__dict__["__builtins__"]=__builtins__;'.format(modName)
-                template += '{0}.__dict__["{1}"]={1};'.format(name, fileName[:-3])
-
-    for fileName in files:
-        if fileName[-3:] == '.py':
-            with open('{0}/{1}'.format(name, fileName), 'rt') as f:
-                modName = fileName[:-3] if fileName != '__init__.py' else name
-                code = compile(f.read(), fileName, 'exec')
-                data = marshal.dumps(code)
-                template += 'exec marshal.loads({}) in {}.__dict__;'.format(repr(data), modName)
-
-
-    template += 'sys.modules["{0}"]={0};'.format(name)
-    return True
-
-def packModule(name, module, head, importOrder):
-    global template
-
-    if head not in module.__name__:
-        return False
-
-    print 'packing {}'.format(module.__name__)
-    template += '{0}=types.ModuleType("{0}","None");'.format(name)
-    template += '{}.__dict__["__builtins__"]=__builtins__;'.format(name)
-    if (name, module) in importOrder:
-        importOrder.remove((name, module))
-    importOrder.append((name, module))
-
-    for k, v in module.__dict__.iteritems():
-        if isinstance(v, types.ModuleType):
-            if packModule(k, v, name, importOrder):
-                template += '{0}.__dict__["{1}"]={1};'.format(name, k)
-
-    return True
-
-
+template += 'import sys, types;'
 
 
 def packModule(name):
