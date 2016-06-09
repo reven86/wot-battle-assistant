@@ -67,7 +67,7 @@ def setNewTarget(newTarget):
         #print 'setNewTarget monitor {0}'.format(gExpertTarget.id if gExpertTarget is not None else 0)
         #FLUSH_LOG()
         if g_appLoader.getDefBattleApp():
-            g_appLoader.getDefBattleApp().pMsgsPanel._FadingMessages__showMessage(random.choice(string.ascii_letters), 'Expert: {0}'.format(g_sessionProvider.getCtx().getFullPlayerName(vID=gExpertTarget.id)) if gExpertTarget is not None else 'Expert: OFF', 'default')
+            g_appLoader.getDefBattleApp().pMsgsPanel._FadingMessages__showMessage(random.choice(string.ascii_letters), 'Expert: {0}'.format(g_sessionProvider.getCtx().getPlayerFullNameParts(vID=gExpertTarget.id)[0]) if gExpertTarget is not None else 'Expert: OFF', 'default')
 
 
 oldPlayerAvatar_handleKey = Avatar.PlayerAvatar.handleKey

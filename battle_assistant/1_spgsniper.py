@@ -30,8 +30,7 @@ class SPGAim(object):
     
     def __init__(self):
         self.enabled = False
-        self._projectileMP = Math.WGAdaptiveMatrixProvider()
-        self._projectileMP.target = mathUtils.createIdentityMatrix()
+        self._projectileModel = None
         self._projectileID = None
         self._trackProjectile = False
         self._trackProjectileStartPoint = None
@@ -104,7 +103,7 @@ class SPGAim(object):
         replayCtrl = BattleReplay.g_replayCtrl
 
 
-        distRange = camera._StrategicCamera__cfg['distRange'][:]
+        distRange = list(camera._StrategicCamera__cfg['distRange'])
         if distRange[0] < 20:
             distRange[0] = 20
         distRange[1] = 600
@@ -226,11 +225,11 @@ class SPGAim(object):
                     camera._StrategicCamera__cam.target.b.setTranslate(self._trackProjectileStartPoint + self._trackProjectileVelocity.scale(time) + gravity.scale(time * time * 0.5))
                     BigWorld.projection().fov = math.pi * 0.4
 
-            elif player._PlayerAvatar__projectileMover._ProjectileMover__projectiles.get(self._projectileID):
-                shellVelocity = Math.Matrix(self._projectileMP).applyVector(Math.Vector3(0.0, 0.0, 1.0))
+            elif player._PlayerAvatar__projectileMover and self._projectileID in player._PlayerAvatar__projectileMover._ProjectileMover__projectiles:
+                shellVelocity = Math.Matrix(self._projectileModel.matrix).applyVector(Math.Vector3(0.0, 0.0, 1.0))
                 srcMat.setRotateYPR((shellVelocity.yaw, -shellVelocity.pitch, 0))
                 camera._StrategicCamera__cam.source = srcMat
-                camera._StrategicCamera__cam.target.b = self._projectileMP
+                camera._StrategicCamera__cam.target.b.setTranslate(self._projectileModel.position)
                 BigWorld.projection().fov = math.pi * 0.4
 
         return 0
@@ -274,14 +273,14 @@ class SPGAim(object):
         #FLUSH_LOG( )
 
     def captureProjectile(self, shotID, model):
-        self._projectileMP.target = model.matrix
+        self._projectileModel = model
         self._projectileID = shotID
         self._trackProjectile = False
-
+        
     def predictProjectile(self):
-        if not self.enabled:
-            return
         player = BigWorld.player( )
+        if not self.enabled or self._projectileID in player._PlayerAvatar__projectileMover._ProjectileMover__projectiles:
+            return
         descr = player.vehicleTypeDescriptor
         self._trackProjectile = True
         self._trackProjectileStartTime = BigWorld.time() + 2 * SERVER_TICK_LENGTH
@@ -412,14 +411,15 @@ def ProjectileMover_add(*kargs, **kwargs):
         oldProjectileMover_add(*kargs, **kwargs)    
 
     attackerID = kargs[oldProjectileMover_add.func_code.co_varnames.index('attackerID')]
-    if spgAim._trackProjectile and attackerID == BigWorld.player().playerVehicleID:
+    if spgAim.enabled and attackerID == BigWorld.player().playerVehicleID:
         kargs = list(kargs)
         kargs[oldProjectileMover_add.func_code.co_varnames.index('startPoint')] = kargs[oldProjectileMover_add.func_code.co_varnames.index('refStartPoint')]
 
     oldProjectileMover_add(*kargs, **kwargs)    
 
-    shotID = kargs[oldProjectileMover_add.func_code.co_varnames.index('shotID')]
+    attacker = BigWorld.entity(attackerID)
     if attackerID == BigWorld.player().playerVehicleID:
+        shotID = kargs[oldProjectileMover_add.func_code.co_varnames.index('shotID')]
         proj = BigWorld.player()._PlayerAvatar__projectileMover._ProjectileMover__projectiles.get(shotID, None)
         if proj:
             spgAim.captureProjectile(shotID, proj['model'])

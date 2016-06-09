@@ -8,4 +8,4 @@
 expert:
   enabled: true
 gunner:
-  enabled: true
+  enabled: false
