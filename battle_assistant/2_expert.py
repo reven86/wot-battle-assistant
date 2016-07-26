@@ -11,7 +11,8 @@ import random
 import string
 from gui.battle_control import g_sessionProvider
 from debug_utils import *
-
+from gui.Scaleform.framework import ViewTypes
+from gui.Scaleform.genConsts.BATTLE_VIEW_ALIASES import BATTLE_VIEW_ALIASES
 
  
 gExpertTarget = None
@@ -40,14 +41,14 @@ def PlayerAvatar_showOtherVehicleDamagedDevices(self, vehicleID, damagedExtras, 
     global gExpertTarget
     if gExpertTarget is not None:
         target = gExpertTarget
-        feedback = g_sessionProvider.getFeedback()
+        feedback = g_sessionProvider.shared.feedback
         if not isinstance(target, Vehicle.Vehicle):
             if self._PlayerAvatar__maySeeOtherVehicleDamagedDevices and vehicleID != 0:
                 self.cell.monitorVehicleDamagedDevices(0)
                 #print 'PlayerAvatar_showOtherVehicleDamagedDevices monitor {0}'.format(0)
                 #FLUSH_LOG()
         elif target.id == vehicleID:
-            feedback.showVehicleDamagedDevices(vehicleID, damagedExtras, destroyedExtras, avatar=self)
+            feedback.showVehicleDamagedDevices(vehicleID, damagedExtras, destroyedExtras)
         else:
             if self._PlayerAvatar__maySeeOtherVehicleDamagedDevices:
                 self.cell.monitorVehicleDamagedDevices(target.id)
@@ -67,7 +68,8 @@ def setNewTarget(newTarget):
         #print 'setNewTarget monitor {0}'.format(gExpertTarget.id if gExpertTarget is not None else 0)
         #FLUSH_LOG()
         if g_appLoader.getDefBattleApp():
-            g_appLoader.getDefBattleApp().pMsgsPanel._FadingMessages__showMessage(random.choice(string.ascii_letters), 'Expert: {0}'.format(g_sessionProvider.getCtx().getPlayerFullNameParts(vID=gExpertTarget.id)[0]) if gExpertTarget is not None else 'Expert: OFF', 'default')
+            panel = g_appLoader.getDefBattleApp().containerManager.getContainer(ViewTypes.VIEW).getView().components[BATTLE_VIEW_ALIASES.PLAYER_MESSAGES]
+            panel.as_showRedMessageS(None, 'Expert: {0}'.format(g_sessionProvider.getCtx().getPlayerFullNameParts(vID=gExpertTarget.id)[0]) if gExpertTarget is not None else 'Expert: OFF')
 
 
 oldPlayerAvatar_handleKey = Avatar.PlayerAvatar.handleKey

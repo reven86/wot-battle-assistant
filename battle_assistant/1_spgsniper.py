@@ -1,3 +1,7 @@
+#import bwpydevd
+#bwpydevd.startPyDevD(ide='eclipse')
+
+
 import BigWorld, Math, Keys                                   
 import BattleReplay
 import GUI
@@ -20,6 +24,8 @@ from gui import DEPTH_OF_GunMarker
 from gui import g_guiResetters
 import ProjectileMover
 import Avatar
+from gui.Scaleform.framework import ViewTypes
+from gui.Scaleform.genConsts.BATTLE_VIEW_ALIASES import BATTLE_VIEW_ALIASES
 
 
 
@@ -100,9 +106,6 @@ class SPGAim(object):
             self.enabled = False
 
     def onStrategicCameraUpdate(self, camera):
-        replayCtrl = BattleReplay.g_replayCtrl
-
-
         distRange = list(camera._StrategicCamera__cfg['distRange'])
         if distRange[0] < 20:
             distRange[0] = 20
@@ -122,17 +125,19 @@ class SPGAim(object):
         shift = srcMat.applyVector(Math.Vector3(camera._StrategicCamera__dxdydz.x, 0, -camera._StrategicCamera__dxdydz.y)) * camera._StrategicCamera__curSense
 
 
+        replayCtrl = BattleReplay.g_replayCtrl
         if replayCtrl.isPlaying and replayCtrl.isControllingCamera:
             aimOffset = replayCtrl.getAimClipPosition()
         else:
             aimWorldPos = camera._StrategicCamera__aimingSystem.matrix.translation
             aimOffset = cameras.projectPoint(aimWorldPos)
+            aimOffset = Math.Vector2(aimOffset.x, aimOffset.y)
             if replayCtrl.isRecording:
-                replayCtrl.setAimClipPosition(Math.Vector2( aimOffset.x, aimOffset.y ))
-
-        camera._StrategicCamera__aimOffsetFunc((aimOffset.x, aimOffset.y))
+                replayCtrl.setAimClipPosition(aimOffset)
+        camera._StrategicCamera__aimOffset = aimOffset
+        
         shotDescr = BigWorld.player().vehicleTypeDescriptor.shot
-        BigWorld.wg_trajectory_drawer().setParams(shotDescr['maxDistance'], Math.Vector3(0, -shotDescr['gravity'], 0), camera._StrategicCamera__aimOffsetFunc())
+        BigWorld.wg_trajectory_drawer().setParams(shotDescr['maxDistance'], Math.Vector3(0, -shotDescr['gravity'], 0), aimOffset)
         curTime = BigWorld.time()
         deltaTime = curTime - camera._StrategicCamera__prevTime
         camera._StrategicCamera__prevTime = curTime
@@ -140,13 +145,13 @@ class SPGAim(object):
         if replayCtrl.isPlaying:
             if camera._StrategicCamera__needReset != 0:
                 if camera._StrategicCamera__needReset > 1:
-                    player = BigWorld.player()
-                    if player.inputHandler.ctrl is not None:
-                        player.inputHandler.ctrl.resetGunMarkers()
-                    
-                camera._StrategicCamera__needReset = 0
-            else:
-                camera._StrategicCamera__needReset += 1
+                    from helpers import isPlayerAvatar
+                    if isPlayerAvatar():
+                        if player.inputHandler.ctrl is not None:
+                            player.inputHandler.ctrl.resetGunMarkers()
+                    camera._StrategicCamera__needReset = 0
+                else:
+                    camera._StrategicCamera__needReset += 1
 
             if replayCtrl.isControllingCamera:
                 camera._StrategicCamera__aimingSystem.updateTargetPos(replayCtrl.getGunRotatorTargetPoint())
@@ -154,9 +159,10 @@ class SPGAim(object):
                 camera._StrategicCamera__aimingSystem.handleMovement(shift.x, shift.z)
                 if shift.x != 0 and shift.z != 0 or camera._StrategicCamera__dxdydz.z != 0:
                     self._StrategicCamera__needReset = 2
+        else:
+            camera._StrategicCamera__aimingSystem.handleMovement(shift.x, shift.z)
             
-        camera._StrategicCamera__aimingSystem.handleMovement(shift.x, shift.z)
-        camera._StrategicCamera__camDist -= camera._StrategicCamera__dxdydz.z * float(camera._StrategicCamera__curSense)
+        camera._StrategicCamera__camDist -= camera._StrategicCamera__dxdydz.z * float(camera._StrategicCamera__curSense)        
         maxPivotHeight = (distRange[1] - distRange[0]) / BigWorld._ba_config['spg']['zoomSpeed']
         camera._StrategicCamera__camDist = mathUtils.clamp(0, maxPivotHeight, camera._StrategicCamera__camDist)
         camera._StrategicCamera__cfg['camDist'] = camera._StrategicCamera__camDist
@@ -325,10 +331,9 @@ def StrategicCamera__cameraUpdate( self ):
         self._StrategicCamera__cam.source = srcMat
         self._StrategicCamera__cam.target.b = self._StrategicCamera__aimingSystem.matrix
 
-        if not replayCtrl.isPlaying:
-            BigWorld.projection().nearPlane = spgAim._prevNearPlane
-            BigWorld.projection().farPlane = spgAim._prevFarPlane
-            BigWorld.projection().fov = StrategicCamera.StrategicCamera.ABSOLUTE_VERTICAL_FOV
+        BigWorld.projection().nearPlane = spgAim._prevNearPlane
+        BigWorld.projection().farPlane = spgAim._prevFarPlane
+        BigWorld.projection().fov = StrategicCamera.StrategicCamera.ABSOLUTE_VERTICAL_FOV
         return oldStrategicCamera__cameraUpdate( self )
 
     return spgAim.onStrategicCameraUpdate(self)
@@ -368,7 +373,8 @@ def StrategicAimingSystem_getDesiredShotPoint( self, terrainOnlyCheck = False ):
     return self._matrix.translation
 
 def minimapResetCamera(cam):
-    minimap = g_appLoader.getDefBattleApp().minimap
+    #import pydevd; pydevd.settrace();
+    minimap = g_appLoader.getDefBattleApp().containerManager.getContainer(ViewTypes.VIEW).getView().components[BATTLE_VIEW_ALIASES.MINIMAP]
     if minimap is None:
         return
 
@@ -399,7 +405,7 @@ def StrategicControlMode_handleKeyEvent( self, isDown, key, mods, event = None )
 
         BigWorld.player().positionControl.followCamera(not spgAim.enabled)
 
-        minimapResetCamera(self._cam)
+        #minimapResetCamera(self._cam)
 
         return True
 
@@ -429,7 +435,6 @@ def PlayerAvatar__startWaitingForShot(*kargs, **kwargs):
     oldPlayerAvatar__startWaitingForShot(*kargs, **kwargs)
     if spgAim.enabled:
         spgAim.predictProjectile()
-
 
 
 if BigWorld._ba_config['spg']['enabled']:
