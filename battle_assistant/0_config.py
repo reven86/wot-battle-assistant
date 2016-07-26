@@ -17,7 +17,7 @@ if True:
         traceback.print_exception(*sys.exc_info())
         BigWorld._ba_config = {'spg':{'enabled':True, 'keys':"[Keys.KEY_MOUSE2, Keys.KEY_G]", 'ignoreObstacles':False, 'zoomSpeed':3.0, 'alwaysFollowProjectile':False, 'followProjectileKey': 'Keys.KEY_LALT'}, 'expert':{'enabled':True}, 'gunner':{'enabled':True}}
     finally:
-        BigWorld._ba_config['version'] = '1.3.5'
+        BigWorld._ba_config['version'] = '1.3.6'
         BigWorld._ba_config['analyticsEventSent'] = False
 
 print 'Battle Assistant: v{}'.format(BigWorld._ba_config['version'])
