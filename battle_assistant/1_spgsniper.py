@@ -18,7 +18,6 @@ from constants import SERVER_TICK_LENGTH, SHELL_TRAJECTORY_EPSILON_CLIENT
 from ProjectileMover import collideDynamicAndStatic, collideVehiclesAndStaticScene
 from gun_rotation_shared import calcPitchLimitsFromDesc
 from gui.app_loader import g_appLoader
-from gui.scaleform import Minimap
 from gun_rotation_shared import calcPitchLimitsFromDesc
 from gui import DEPTH_OF_GunMarker
 from gui import g_guiResetters
@@ -27,6 +26,10 @@ import Avatar
 from gui.Scaleform.framework import ViewTypes
 from gui.Scaleform.genConsts.BATTLE_VIEW_ALIASES import BATTLE_VIEW_ALIASES
 
+from gui.battle_control import matrix_factory
+from gui.Scaleform.daapi.view.battle.shared.minimap import settings
+_S_NAME = settings.ENTRY_SYMBOL_NAME
+from gui.Scaleform.daapi.view.battle.shared.minimap.plugins import PersonalEntriesPlugin
 
 
 
@@ -375,22 +378,19 @@ def StrategicAimingSystem_getDesiredShotPoint( self, terrainOnlyCheck = False ):
 def minimapResetCamera(cam):
     #import pydevd; pydevd.settrace();
     minimap = g_appLoader.getDefBattleApp().containerManager.getContainer(ViewTypes.VIEW).getView().components[BATTLE_VIEW_ALIASES.MINIMAP]
-    if minimap is None:
-        return
-
-    if minimap._Minimap__cameraHandle is not None:
-        minimap._Minimap__ownUI.delEntry(minimap._Minimap__cameraHandle)
+    personal = minimap.getPlugin('personal')
 
     if spgAim.enabled:
-        m = cam._StrategicCamera__aimingSystem._matrix
-    else:
-        m = Math.WGStrategicAreaViewMP()
-        m.source = BigWorld.camera().invViewMatrix
-        m.baseScale = (1.0, 1.0)
+        # matrix = cam._StrategicCamera__aimingSystem._matrix
 
-    minimap._Minimap__cameraHandle = minimap._Minimap__ownUI.addEntry(m, minimap.zIndexManager.getIndexByName(Minimap.CAMERA_STRATEGIC))
-    minimap._Minimap__ownUI.entryInvoke(minimap._Minimap__cameraHandle, ('gotoAndStop', [Minimap.CURSOR_STRATEGIC]))
-    minimap._Minimap__parentUI.call('minimap.entryInited', [])
+        matrix = matrix_factory.makeArcadeCameraMatrix()
+        matrix.translationSrc = cam._StrategicCamera__aimingSystem._matrix
+        # FIXME: find a way to scale the square with the zoom level
+    else:
+        matrix = matrix_factory.makeStrategicCameraMatrix()
+
+    cameraID = personal._PersonalEntriesPlugin__cameraIDs[_S_NAME.STRATEGIC_CAMERA]
+    personal._setMatrix(cameraID, matrix)
 
 
 oldStrategicControlMode_handleKeyEvent = control_modes.StrategicControlMode.handleKeyEvent
@@ -405,7 +405,7 @@ def StrategicControlMode_handleKeyEvent( self, isDown, key, mods, event = None )
 
         BigWorld.player().positionControl.followCamera(not spgAim.enabled)
 
-        #minimapResetCamera(self._cam)
+        minimapResetCamera(self._cam)
 
         return True
 
