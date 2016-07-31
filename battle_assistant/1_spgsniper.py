@@ -109,7 +109,10 @@ class SPGAim(object):
             self.enabled = False
 
     def onStrategicCameraUpdate(self, camera):
-        distRange = list(camera._StrategicCamera__cfg['distRange'])
+
+        distRange = camera._StrategicCamera__cfg['distRange']
+        if not BigWorld._ba_config['spg']['activateCommandersCamera']:
+            distRange = list(distRange)
         if distRange[0] < 20:
             distRange[0] = 20
         distRange[1] = 600
