@@ -5,7 +5,7 @@
   ignoreObstacles: false                # игнорировать препятствия (true - камера не будет перескакивать на препятствия на пути снаряда)
   alwaysFollowProjectile: false         # всегда следовать за выстрелом (false - только при нажатии кнопки)
   followProjectileKey: Keys.KEY_LALT    # клавиша для прикрепления камеры к выстрелу, держать нажатой во время выстрела
-  activateCommandersCamera: false       # активировать коммандирскую камеру после выхода из режима БА
+  activateCommandersCamera: false       # активировать командирскую камеру после выхода из режима БА
 expert:
   enabled: true
 gunner:
