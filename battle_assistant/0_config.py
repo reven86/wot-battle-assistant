@@ -28,7 +28,7 @@ if True:
             'expert':{'enabled':True}, 'gunner':{'enabled':True}
         }
     finally:
-        BigWorld._ba_config['version'] = '1.3.7'
+        BigWorld._ba_config['version'] = '1.3.8'
         BigWorld._ba_config['analyticsEventSent'] = False
 
 print 'Battle Assistant: v{}'.format(BigWorld._ba_config['version'])

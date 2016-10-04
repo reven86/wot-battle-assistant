@@ -8,14 +8,14 @@ from AvatarInputHandler import AimingSystems
 
 
 oldSniperAimingSystem_enable = SniperAimingSystem.SniperAimingSystem.enable
-def SniperAimingSystem_enable(self, targetPos):
-    oldSniperAimingSystem_enable(self, targetPos)
+def SniperAimingSystem_enable(self, targetPos, *args):
+    oldSniperAimingSystem_enable(self, targetPos, *args)
     self._shootDistance = 0.0
 
 
 
 oldSniperAimingSystem_getDesiredShotPoint = SniperAimingSystem.SniperAimingSystem.getDesiredShotPoint
-def SniperAimingSystem_getDesiredShotPoint(self):
+def SniperAimingSystem_getDesiredShotPoint(self, *args):
     start = self.matrix.translation
     dir = self.matrix.applyVector(Math.Vector3(0, 0, 1))
 

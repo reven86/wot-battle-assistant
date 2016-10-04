@@ -18,25 +18,25 @@ from gui.Scaleform.genConsts.BATTLE_VIEW_ALIASES import BATTLE_VIEW_ALIASES
 gExpertTarget = None
  
 oldPlayerAvatar_targetFocus = Avatar.PlayerAvatar.targetFocus
-def PlayerAvatar_targetFocus(self, entity):
+def PlayerAvatar_targetFocus(self, entity, *args):
     global gExpertTarget
     saveMaySeeOtherVehicleDamagedDevices = self._PlayerAvatar__maySeeOtherVehicleDamagedDevices
 
     self._PlayerAvatar__maySeeOtherVehicleDamagedDevices = (gExpertTarget is None and self._PlayerAvatar__maySeeOtherVehicleDamagedDevices)
-    oldPlayerAvatar_targetFocus(self, entity)
+    oldPlayerAvatar_targetFocus(self, entity, *args)
     self._PlayerAvatar__maySeeOtherVehicleDamagedDevices = saveMaySeeOtherVehicleDamagedDevices
  
 oldPlayerAvatar_targetBlur = Avatar.PlayerAvatar.targetBlur
-def PlayerAvatar_targetBlur(self, prevEntity):
+def PlayerAvatar_targetBlur(self, prevEntity, *args):
     global gExpertTarget
     saveMaySeeOtherVehicleDamagedDevices = self._PlayerAvatar__maySeeOtherVehicleDamagedDevices
 
     self._PlayerAvatar__maySeeOtherVehicleDamagedDevices = (gExpertTarget is None and self._PlayerAvatar__maySeeOtherVehicleDamagedDevices)
-    oldPlayerAvatar_targetBlur(self, prevEntity)
+    oldPlayerAvatar_targetBlur(self, prevEntity, *args)
     self._PlayerAvatar__maySeeOtherVehicleDamagedDevices = saveMaySeeOtherVehicleDamagedDevices
  
 old_PlayerAvatar_showOtherVehicleDamagedDevices = Avatar.PlayerAvatar.showOtherVehicleDamagedDevices
-def PlayerAvatar_showOtherVehicleDamagedDevices(self, vehicleID, damagedExtras, destroyedExtras):
+def PlayerAvatar_showOtherVehicleDamagedDevices(self, vehicleID, damagedExtras, destroyedExtras, *args):
     #print 'PlayerAvatar_showOtherVehicleDamagedDevices'
     global gExpertTarget
     if gExpertTarget is not None:
@@ -56,7 +56,7 @@ def PlayerAvatar_showOtherVehicleDamagedDevices(self, vehicleID, damagedExtras, 
                 #FLUSH_LOG()
             feedback.hideVehicleDamagedDevices(vehicleID)
     else:
-        old_PlayerAvatar_showOtherVehicleDamagedDevices(self, vehicleID, damagedExtras, destroyedExtras)
+        old_PlayerAvatar_showOtherVehicleDamagedDevices(self, vehicleID, damagedExtras, destroyedExtras, *args)
  
 
 def setNewTarget(newTarget):
@@ -73,34 +73,34 @@ def setNewTarget(newTarget):
 
 
 oldPlayerAvatar_handleKey = Avatar.PlayerAvatar.handleKey
-def PlayerAvatar_handleKey(self, isDown, key, mods):
+def PlayerAvatar_handleKey(self, isDown, key, mods, *args):
     if self._PlayerAvatar__maySeeOtherVehicleDamagedDevices:
         cmdMap = CommandMapping.g_instance
         #print 'PlayerAvatar_handleKey {0} {1} {2}'.format(cmdMap.isFired(CommandMapping.CMD_CHAT_SHORTCUT_ATTACK, key), isDown, self._PlayerAvatar__maySeeOtherVehicleDamagedDevices)
         if isDown and cmdMap.isFired(CommandMapping.CMD_CHAT_SHORTCUT_ATTACK, key):
             setNewTarget(BigWorld.target())
 
-    return oldPlayerAvatar_handleKey(self, isDown, key, mods)
+    return oldPlayerAvatar_handleKey(self, isDown, key, mods, *args)
 
 
 oldVehicle_stopVisual = Vehicle.Vehicle.stopVisual
-def Vehicle_stopVisual(self):
-    oldVehicle_stopVisual( self )
+def Vehicle_stopVisual(self, *args):
+    oldVehicle_stopVisual( self, *args )
 
     global gExpertTarget
     if gExpertTarget is not None and self.id == gExpertTarget.id:
         setNewTarget(None)
 
 oldVehicle__onVehicleDeath = Vehicle.Vehicle._Vehicle__onVehicleDeath
-def Vehicle__onVehicleDeath(self, isDeadStarted = False):
-    oldVehicle__onVehicleDeath(self, isDeadStarted)
+def Vehicle__onVehicleDeath(self, isDeadStarted = False, *args):
+    oldVehicle__onVehicleDeath(self, isDeadStarted, *args)
     if gExpertTarget is not None and gExpertTarget.id == self.id:
         setNewTarget(None)
 
 
 oldPlayerAvatar_showShotResults = Avatar.PlayerAvatar.showShotResults
-def PlayerAvatar_showShotResults(self, results):
-    oldPlayerAvatar_showShotResults(self, results)
+def PlayerAvatar_showShotResults(self, results, *args):
+    oldPlayerAvatar_showShotResults(self, results, *args)
 
     if not self._PlayerAvatar__maySeeOtherVehicleDamagedDevices:
         return

@@ -307,29 +307,29 @@ class SPGAim(object):
 spgAim = SPGAim()
 
 oldStrategicCamera_create = StrategicCamera.StrategicCamera.create
-def StrategicCamera_create(self, onChangeControlMode):
+def StrategicCamera_create(self, onChangeControlMode, *args):
     spgAim._prevNearPlane = BigWorld.projection().nearPlane
     spgAim._prevFarPlane = BigWorld.projection().farPlane
-    oldStrategicCamera_create(self, onChangeControlMode)
+    oldStrategicCamera_create(self, onChangeControlMode, *args)
     spgAim.onStrategicCameraCreate(self)
 
 oldStrategicCamera_enable = StrategicCamera.StrategicCamera.enable
-def StrategicCamera_enable(self, targetPos, saveDist):
+def StrategicCamera_enable(self, targetPos, saveDist, *args):
     spgAim._prevNearPlane = BigWorld.projection().nearPlane
     spgAim._prevFarPlane = BigWorld.projection().farPlane
     spgAim.onStrategicCameraEnable(self)
-    oldStrategicCamera_enable(self, targetPos, saveDist)
+    oldStrategicCamera_enable(self, targetPos, saveDist, *args)
 
 oldStrategicCamera_disable = StrategicCamera.StrategicCamera.disable
-def StrategicCamera_disable(self):
-    oldStrategicCamera_disable(self)
+def StrategicCamera_disable(self, *args):
+    oldStrategicCamera_disable(self, *args)
     spgAim.onStrategicCameraDisable(self)
     BigWorld.projection().nearPlane = spgAim._prevNearPlane
     BigWorld.projection().farPlane = spgAim._prevFarPlane
 
 
 oldStrategicCamera__cameraUpdate = StrategicCamera.StrategicCamera._StrategicCamera__cameraUpdate
-def StrategicCamera__cameraUpdate( self ):
+def StrategicCamera__cameraUpdate( self, *args ):
     replayCtrl = BattleReplay.g_replayCtrl
 
     if not spgAim.enabled:
@@ -342,10 +342,10 @@ def StrategicCamera__cameraUpdate( self ):
         BigWorld.projection().fov = StrategicCamera.StrategicCamera.ABSOLUTE_VERTICAL_FOV
         return oldStrategicCamera__cameraUpdate( self )
 
-    return spgAim.onStrategicCameraUpdate(self)
+    return spgAim.onStrategicCameraUpdate(self, *args)
 
 oldStrategicAimingSystem_updateMatrix = StrategicAimingSystem.StrategicAimingSystem._StrategicAimingSystem__updateMatrix
-def StrategicAimingSystem_updateMatrix(self):
+def StrategicAimingSystem_updateMatrix(self, *args):
     player = BigWorld.player( )
     descr = player.vehicleTypeDescriptor
 
@@ -368,12 +368,12 @@ def StrategicAimingSystem_updateMatrix(self):
         spgAim.calcTrajectoryProperties(aimPoint)
         return
 
-    spgAim.onStrategicAimingSystemUpdateMatrix(self)
+    spgAim.onStrategicAimingSystemUpdateMatrix(self, *args)
 
 oldStrategicAimingSystem_getDesiredShotPoint = StrategicAimingSystem.StrategicAimingSystem.getDesiredShotPoint
-def StrategicAimingSystem_getDesiredShotPoint( self, terrainOnlyCheck = False ):
+def StrategicAimingSystem_getDesiredShotPoint( self, terrainOnlyCheck = False, *args ):
     if not spgAim.enabled:
-        return oldStrategicAimingSystem_getDesiredShotPoint( self, terrainOnlyCheck )
+        return oldStrategicAimingSystem_getDesiredShotPoint( self, terrainOnlyCheck, *args )
 
     spgAim._lastShotPoint = self._matrix.translation
     return self._matrix.translation
@@ -397,9 +397,9 @@ def minimapResetCamera(cam):
 
 
 oldStrategicControlMode_handleKeyEvent = control_modes.StrategicControlMode.handleKeyEvent
-def StrategicControlMode_handleKeyEvent( self, isDown, key, mods, event = None ):
+def StrategicControlMode_handleKeyEvent( self, isDown, key, mods, event = None, *args ):
 
-    keyProcessed = oldStrategicControlMode_handleKeyEvent( self, isDown, key, mods, event )
+    keyProcessed = oldStrategicControlMode_handleKeyEvent( self, isDown, key, mods, event, *args )
     if keyProcessed:
         return True
 
