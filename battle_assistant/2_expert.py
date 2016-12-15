@@ -9,7 +9,6 @@ import TriggersManager
 from TriggersManager import TRIGGER_TYPE
 import random
 import string
-# from gui.battle_control import g_sessionProvider
 from debug_utils import *
 from gui.Scaleform.framework import ViewTypes
 from gui.Scaleform.genConsts.BATTLE_VIEW_ALIASES import BATTLE_VIEW_ALIASES
